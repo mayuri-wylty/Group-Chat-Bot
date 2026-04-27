@@ -38,6 +38,21 @@ function Test-Port {
     }
 }
 
+function Wait-Port {
+    param(
+        [int]$Port,
+        [int]$TimeoutSeconds = 15
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Port $Port) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
 function Get-WebUiUrl {
     $webuiConfig = Join-Path $Root "NapCatCompat\NapCat.41785.Shell\versions\9.9.23-41785\resources\app\napcat\config\webui.json"
     if (Test-Path -LiteralPath $webuiConfig) {
@@ -127,9 +142,13 @@ try {
     }
     Start-Sleep -Seconds 2
 
-    Write-LauncherLog "[5/5] Opening browser pages"
-    Start-Process $WebUiUrl
-    Start-Process $ConfigUrl
+    Write-LauncherLog "[5/5] Opening config page"
+    if (Wait-Port 7070 15) {
+        Start-Process $ConfigUrl
+        Write-LauncherLog "Config page opened once: $ConfigUrl"
+    } else {
+        Write-LauncherLog "Config page was not opened because port 7070 is not ready"
+    }
 
     Start-Sleep -Seconds 2
     Write-LauncherLog "Port 6099 WebUI: $(if (Test-Port 6099) { 'OK' } else { 'NOT LISTENING' })"
