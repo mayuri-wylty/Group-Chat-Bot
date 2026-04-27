@@ -38,6 +38,15 @@ class OneBotClient:
             },
         )
 
+    def send_group_msg(self, group_id: int | str, message: str) -> dict:
+        return self.call(
+            "send_group_msg",
+            {
+                "group_id": int(group_id),
+                "message": message,
+            },
+        )
+
     def get_login_info(self) -> dict:
         url = f"{self.api_base}/get_login_info"
         response = requests.post(

@@ -9,6 +9,7 @@ $ClaudeScript = $null
 $ConfigUrl = "http://127.0.0.1:7070"
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
+$env:A5_ROOT = $Root
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
@@ -60,6 +61,7 @@ function Stop-A5Processes {
         $_.ProcessId -ne $PID -and (
             ($_.CommandLine -match "main\.py") -or
             ($_.CommandLine -match "config_server\.py") -or
+            ($_.Name -in @("A5Bot.exe", "A5Config.exe")) -or
             ($_.Name -eq "NapCatWinBootMain.exe") -or
             (($_.Name -eq "QQ.exe") -and ($_.ExecutablePath -like "$Root\NapCatCompat*")) -or
             (($_.Name -eq "powershell.exe") -and ($_.CommandLine -like "*NapCatQQ.ps1*"))
@@ -88,12 +90,16 @@ try {
     Stop-A5Processes
     Start-Sleep -Seconds 2
 
-    Write-LauncherLog "[1/5] Starting Claude Code"
-    if ($ClaudeScript -and (Test-Path -LiteralPath $ClaudeScript)) {
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "call `"$ClaudeScript`"" -WindowStyle Normal
-        Write-LauncherLog "Claude Code launch command sent"
+    Write-LauncherLog "[1/5] Claude Code terminal"
+    if ($env:A5_START_CLAUDE_TERMINAL -eq "1") {
+        if ($ClaudeScript -and (Test-Path -LiteralPath $ClaudeScript)) {
+            Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "call `"$ClaudeScript`"" -WindowStyle Normal
+            Write-LauncherLog "Claude Code terminal launch command sent"
+        } else {
+            Write-LauncherLog "Claude Code script not found: $ClaudeScript"
+        }
     } else {
-        Write-LauncherLog "Claude Code script not found: $ClaudeScript"
+        Write-LauncherLog "Skipped Claude Code terminal; Bot still uses claude command in background"
     }
 
     Write-LauncherLog "[2/5] Starting NapCatQQ"
@@ -104,16 +110,26 @@ try {
     Start-Sleep -Seconds 8
 
     Write-LauncherLog "[3/5] Starting QQ Claude Bot in background"
-    Start-Process -FilePath "python.exe" -ArgumentList "main.py" -WorkingDirectory $Root -WindowStyle Hidden
+    $botExe = Join-Path $Root "A5Bot.exe"
+    if (Test-Path -LiteralPath $botExe) {
+        Start-Process -FilePath $botExe -WorkingDirectory $Root -WindowStyle Hidden
+    } else {
+        Start-Process -FilePath "python.exe" -ArgumentList "main.py" -WorkingDirectory $Root -WindowStyle Hidden
+    }
     Start-Sleep -Seconds 2
 
     Write-LauncherLog "[4/5] Starting config page server in background"
-    Start-Process -FilePath "python.exe" -ArgumentList "config_server.py" -WorkingDirectory $Root -WindowStyle Hidden
+    $configExe = Join-Path $Root "A5Config.exe"
+    if (Test-Path -LiteralPath $configExe) {
+        Start-Process -FilePath $configExe -WorkingDirectory $Root -WindowStyle Hidden
+    } else {
+        Start-Process -FilePath "python.exe" -ArgumentList "config_server.py" -WorkingDirectory $Root -WindowStyle Hidden
+    }
     Start-Sleep -Seconds 2
 
     Write-LauncherLog "[5/5] Opening browser pages"
     Start-Process $WebUiUrl
-    Write-LauncherLog "Config page is opened by config_server.py"
+    Start-Process $ConfigUrl
 
     Start-Sleep -Seconds 2
     Write-LauncherLog "Port 6099 WebUI: $(if (Test-Port 6099) { 'OK' } else { 'NOT LISTENING' })"

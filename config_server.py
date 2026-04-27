@@ -7,7 +7,6 @@ import socket
 import subprocess
 import sys
 import time
-import webbrowser
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -75,12 +74,21 @@ Set-Location $napcatDir
 
 
 def run_powershell(script: str, timeout: int = 10) -> subprocess.CompletedProcess[str]:
+    startupinfo = None
+    creationflags = 0
+    if os.name == "nt":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+        creationflags = subprocess.CREATE_NO_WINDOW
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
         cwd=str(BASE_DIR),
         text=True,
         capture_output=True,
         timeout=timeout,
+        startupinfo=startupinfo,
+        creationflags=creationflags,
     )
 
 
@@ -156,10 +164,13 @@ def restart_napcat(qq: str | None, update_launcher: bool = True) -> dict[str, An
 
 
 class ConfigHandler(SimpleHTTPRequestHandler):
-    server_version = "QQClaudeConfig/1.0"
+    server_version = "QQAIBotConfig/1.0"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=str(WEB_DIR), **kwargs)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
 
     def _read_body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0") or 0)
@@ -211,7 +222,11 @@ class ConfigHandler(SimpleHTTPRequestHandler):
                     BOT_PROCESS.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     BOT_PROCESS.kill()
-            BOT_PROCESS = subprocess.Popen([sys.executable, str(BASE_DIR / "main.py")], cwd=str(BASE_DIR))
+            bot_exe = BASE_DIR / "A5Bot.exe"
+            if getattr(sys, "frozen", False) and bot_exe.exists():
+                BOT_PROCESS = subprocess.Popen([str(bot_exe)], cwd=str(BASE_DIR))
+            else:
+                BOT_PROCESS = subprocess.Popen([sys.executable, str(BASE_DIR / "main.py")], cwd=str(BASE_DIR))
             self._json_response(200, {"ok": True, "pid": BOT_PROCESS.pid})
             return
 
@@ -313,7 +328,6 @@ def main() -> None:
     host = str(config.get("config_host", "127.0.0.1"))
     port = int(config.get("config_port", 7070))
     url = f"http://{host}:{port}"
-    webbrowser.open(url)
     print(f"配置页已启动：{url}")
     server = ThreadingHTTPServer((host, port), ConfigHandler)
     server.serve_forever()

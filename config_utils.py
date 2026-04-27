@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(os.environ.get("A5_ROOT", Path(__file__).resolve().parent)).resolve()
+
 CONFIG_PATH = BASE_DIR / "config.json"
 STATUS_PATH = BASE_DIR / "runtime_status.json"
 STATS_PATH = BASE_DIR / "runtime_stats.json"
@@ -15,7 +21,16 @@ LOG_DIR = BASE_DIR / "logs"
 DEFAULT_CONFIG: dict[str, Any] = {
     "trigger_prefix": "/ai ",
     "whitelist": [],
-    "claude_timeout": 120,
+    "group_whitelist": [],
+    "enable_private": True,
+    "enable_group": False,
+    "llm_api_base": "",
+    "llm_api_key": "",
+    "llm_model": "",
+    "llm_temperature": 0.7,
+    "llm_timeout": 120,
+    "history_max_messages": 20,
+    "system_prompt": "你是一个通过 QQ 接入的 AI 助手。请用简洁、清晰、可靠的中文回答。",
     "max_chunk_size": 500,
     "thinking_msg": "收到，正在处理...",
     "onebot_api_base": "http://127.0.0.1:3000",
@@ -31,6 +46,12 @@ def ensure_dirs() -> None:
     LOG_DIR.mkdir(exist_ok=True)
 
 
+def _normalize_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [str(item).strip() for item in values if str(item).strip()]
+
+
 def load_config() -> dict[str, Any]:
     if not CONFIG_PATH.exists():
         save_config(DEFAULT_CONFIG)
@@ -40,14 +61,16 @@ def load_config() -> dict[str, Any]:
         data = json.load(file)
     merged = DEFAULT_CONFIG.copy()
     merged.update(data)
-    merged["whitelist"] = [str(item).strip() for item in merged.get("whitelist", []) if str(item).strip()]
+    merged["whitelist"] = _normalize_list(merged.get("whitelist", []))
+    merged["group_whitelist"] = _normalize_list(merged.get("group_whitelist", []))
     return merged
 
 
 def save_config(config: dict[str, Any]) -> None:
     merged = DEFAULT_CONFIG.copy()
     merged.update(config)
-    merged["whitelist"] = [str(item).strip() for item in merged.get("whitelist", []) if str(item).strip()]
+    merged["whitelist"] = _normalize_list(merged.get("whitelist", []))
+    merged["group_whitelist"] = _normalize_list(merged.get("group_whitelist", []))
     with CONFIG_PATH.open("w", encoding="utf-8") as file:
         json.dump(merged, file, ensure_ascii=False, indent=2)
 
