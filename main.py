@@ -197,14 +197,13 @@ def handle_message(event: dict[str, Any]) -> None:
     session_key = build_session_key(event)
     client = OneBotClient(config["onebot_api_base"], config.get("onebot_access_token", ""))
 
-    if not user_id:
-        logging.warning("忽略缺少 user_id 的事件：%s", event)
-        return
-    if not is_user_allowed(user_id, config):
-        logging.info("忽略非白名单 QQ：%s", user_id)
-        return
-
     if message_type == "private":
+        if not user_id:
+            logging.warning("忽略缺少 user_id 的私聊事件：%s", event)
+            return
+        if not is_user_allowed(user_id, config):
+            logging.info("忽略非白名单私聊 QQ：%s", user_id)
+            return
         if not bool(config.get("enable_private", True)):
             logging.info("忽略私聊消息：私聊接入未启用")
             return
@@ -218,6 +217,9 @@ def handle_message(event: dict[str, Any]) -> None:
             return
         prompt = raw_message[len(prefix) :].strip() if is_activation else text
     elif message_type == "group":
+        if not user_id:
+            logging.warning("忽略缺少 user_id 的群聊事件：%s", event)
+            return
         if not bool(config.get("enable_group", False)):
             logging.info("忽略群聊消息：群聊接入未启用")
             return
