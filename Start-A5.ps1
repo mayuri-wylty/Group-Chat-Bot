@@ -142,12 +142,18 @@ try {
     }
     Start-Sleep -Seconds 2
 
-    Write-LauncherLog "[5/5] Opening config page"
+    Write-LauncherLog "[5/5] Opening browser pages"
     if (Wait-Port 7070 15) {
         Start-Process $ConfigUrl
         Write-LauncherLog "Config page opened once: $ConfigUrl"
     } else {
         Write-LauncherLog "Config page was not opened because port 7070 is not ready"
+    }
+    if (Wait-Port 6099 5) {
+        Start-Process $WebUiUrl
+        Write-LauncherLog "NapCat WebUI opened once: $WebUiUrl"
+    } else {
+        Write-LauncherLog "NapCat WebUI was not opened because port 6099 is not ready"
     }
 
     Start-Sleep -Seconds 2
